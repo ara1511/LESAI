@@ -149,7 +149,109 @@ Si todo está correcto, debería abrirse la interfaz gráfica.
 ---
 
 ## � Instalación con Docker (Recomendado)
-## ���📱 Uso
+
+### 🎯 **Ventajas de Docker**
+- ✅ **Sin configuración**: Todo preinstalado y configurado
+- ✅ **Portabilidad**: Funciona en cualquier sistema
+- ✅ **Aislamiento**: No interfiere con tu sistema
+- ✅ **Reproducibilidad**: Entorno consistente
+
+### 📋 Prerequisitos Docker
+
+1. **Instalar Docker Desktop**:
+   - **Windows**: [Docker Desktop para Windows](https://docs.docker.com/desktop/windows/install/)
+   - **macOS**: [Docker Desktop para Mac](https://docs.docker.com/desktop/mac/install/)
+   - **Linux**: [Docker Engine](https://docs.docker.com/engine/install/)
+
+2. **Verificar instalación**:
+   ```bash
+   docker --version
+   docker-compose --version
+   ```
+
+### 🚀 Uso Rápido con Docker
+
+#### **Opción 1: Scripts Automatizados**
+
+**En Windows:**
+```batch
+# Construir imagen
+.\docker-run.bat build
+
+# Ejecutar aplicación
+.\docker-run.bat run
+
+# Ver ayuda
+.\docker-run.bat help
+```
+
+**En Linux/macOS:**
+```bash
+# Dar permisos de ejecución
+chmod +x docker-run.sh
+
+# Construir imagen
+./docker-run.sh build
+
+# Ejecutar aplicación
+./docker-run.sh run
+
+# Ver ayuda
+./docker-run.sh help
+```
+
+#### **Opción 2: Docker Compose Manual**
+
+```bash
+# 1. Construir la imagen
+docker-compose build
+
+# 2. Ejecutar la aplicación GUI
+docker-compose up lesai
+
+# 3. Para desarrollo (shell interactivo)
+docker-compose --profile dev run --rm lesai-dev
+
+# 4. Solo entrenamiento del modelo
+docker-compose --profile training run --rm lesai-training
+```
+
+### 🔧 Comandos Docker Útiles
+
+| Comando | Descripción |
+|---------|-------------|
+| `docker-compose build` | Construir imagen |
+| `docker-compose up lesai` | Ejecutar GUI |
+| `docker-compose run --rm lesai python src/capture_samples.py` | Capturar muestras |
+| `docker-compose run --rm lesai python src/train_model.py` | Entrenar modelo |
+| `docker-compose run --rm lesai bash` | Shell interactivo |
+| `docker-compose down` | Detener contenedores |
+| `docker-compose logs lesai` | Ver logs |
+
+### 🎥 Configuración de Cámara para Docker
+
+**Linux:**
+```bash
+# Verificar dispositivos de video
+ls /dev/video*
+
+# Dar permisos (si es necesario)
+sudo chmod 666 /dev/video0
+```
+
+**Windows/macOS:**
+- Docker Desktop debe tener acceso a la cámara
+- Verificar configuración de privacidad del sistema
+
+### 📁 Persistencia de Datos
+
+Los datos se mantienen entre ejecuciones gracias a los volúmenes:
+- `./data/` → Imágenes y keypoints
+- `./models/` → Modelos entrenados
+
+---
+
+## ��📱 Uso
 
 ### 🎬 Inicio Rápido
 

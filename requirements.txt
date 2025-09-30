@@ -1,7 +1,31 @@
-opencv-python 
-mediapipe
-numpy
-tensorflow
-scikit-learn
-pyqt5
-pyttsx3
+# Visión por computadora y procesamiento de imagen
+opencv-python==4.8.1.78
+mediapipe==0.10.7
+
+# Computación numérica y científica
+numpy==1.24.3
+scipy==1.11.4
+
+# Machine Learning e IA
+tensorflow==2.13.0
+scikit-learn==1.3.2
+
+# Interfaz gráfica
+PyQt5==5.15.10
+PyQt5-Qt5==5.15.2
+PyQt5-sip==12.13.0
+
+# Síntesis de voz y audio
+pyttsx3==2.90
+
+# Utilidades adicionales
+pillow==10.1.0
+matplotlib==3.8.2
+pandas==2.1.4
+
+# Dependencias específicas para Docker
+pygame==2.5.2
+
+# Dependencias del sistema (para compatibilidad)
+setuptools>=65.0.0
+wheel>=0.37.0

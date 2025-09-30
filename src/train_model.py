@@ -1,7 +1,6 @@
 import sys
 import os
 
-# Añadir la carpeta raíz al path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
@@ -51,6 +50,6 @@ if __name__ == "__main__":
 
     model.save('models/actions.keras')
 
-    # Guardar mapeo de etiquetas
+    # Guarda el mapeo de etiquetas
     with open('models/label_map.json', 'w') as f:
         json.dump({str(v): k for k, v in {label: num for num, label in enumerate(ACTIONS)}.items()}, f)
