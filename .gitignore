@@ -174,3 +174,87 @@ poetry.toml
 pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python
+
+# ====================================================================
+# CONFIGURACIÓN ESPECÍFICA PARA PROYECTO DE LENGUA DE SEÑAS
+# ====================================================================
+
+# Modelos de machine learning (archivos muy grandes)
+models/
+*.keras
+*.h5
+*.pkl
+*.joblib
+*.model
+*.weights
+
+# Datos de entrenamiento y datasets (archivos muy grandes)
+data/
+datasets/
+*.npy
+*.npz
+
+# Archivos de video e imágenes (muy pesados)
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.webp
+
+# Archivos de audio
+*.wav
+*.mp3
+*.flac
+*.aac
+*.ogg
+
+# Checkpoints y archivos temporales de TensorFlow/Keras
+checkpoints/
+saved_model/
+tensorboard_logs/
+*.pb
+
+# Archivos de debug y test temporales
+test_*.py
+debug_*.py
+temp_*.py
+experimental_*.py
+
+# Carpetas de experimentos y resultados
+experiments/
+outputs/
+results/
+cache/
+logs/
+
+# Archivos de sistema específicos
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Archivos de backup
+*.bak
+*.backup
+*.old
+
+# Archivos comprimidos
+*.zip
+*.rar
+*.7z
+*.tar
+*.tar.gz
+
+# Configuraciones locales
+config.ini
+settings.json
+.env.local
+
+# Archivos de VS Code específicos del workspace
+.vscode/settings.json
+.vscode/launch.json

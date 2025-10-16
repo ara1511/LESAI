@@ -1,11 +1,10 @@
+"""
+GUI Bonita con Lógica Simple que SÍ Funciona
+"""
 import sys
 import os
 import platform
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import cv2
-import os
-os.environ["QT_QPA_PLATFORM"] = "windows"
 import mediapipe as mp
 import numpy as np
 import tensorflow as tf
@@ -40,112 +39,55 @@ class AnimatedButton(QPushButton):
             }}
             QPushButton:hover {{
                 background-color: {self.lighten_color(self.base_color)};
-                transform: translateY(-2px);
             }}
             QPushButton:pressed {{
                 background-color: {self.darken_color(self.base_color)};
-                transform: translateY(0px);
-            }}
-            QPushButton:disabled {{
-                background-color: #cccccc;
-                color: #666666;
             }}
         """
     
     def lighten_color(self, color):
-        # Simplificado para demostración
-        if color == "#4CAF50":
-            return "#66BB6A"
-        elif color == "#f44336":
-            return "#EF5350"
-        return color
+        return "#5CBF60" if color == "#4CAF50" else "#FF6B6B"
     
     def darken_color(self, color):
-        if color == "#4CAF50":
-            return "#388E3C"
-        elif color == "#f44336":
-            return "#C62828"
-        return color
+        return "#45A049" if color == "#4CAF50" else "#FF5252"
 
 class SignTranslatorGUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("🖐️🤖 Comunicación Inclusiva con IA")
-        self.setWindowIcon(QIcon('assets/icon.png'))
+        self.setWindowTitle("🤟 Traductor de Lengua de Señas - Versión Mejorada")
         self.setGeometry(100, 100, 1400, 900)
         
-        # Aplicar tema oscuro moderno
-        self.setStyleSheet("""
-            QMainWindow {
-                background-color: #1e1e1e;
-                color: #ffffff;
-            }
-            QWidget {
-                background-color: #1e1e1e;
-                color: #ffffff;
-                font-family: 'Segoe UI', Arial, sans-serif;
-            }
-            QGroupBox {
-                font-size: 14px;
-                font-weight: bold;
-                border: 2px solid #3c3c3c;
-                border-radius: 8px;
-                margin-top: 1ex;
-                padding-top: 10px;
-                background-color: #2d2d2d;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-            }
-            QLabel {
-                color: #ffffff;
-            }
-            QTextEdit {
-                background-color: #2d2d2d;
-                border: 2px solid #3c3c3c;
-                border-radius: 8px;
-                padding: 10px;
-                font-size: 14px;
-                color: #ffffff;
-            }
-            QProgressBar {
-                border: 2px solid #3c3c3c;
-                border-radius: 8px;
-                text-align: center;
-                background-color: #2d2d2d;
-            }
-            QProgressBar::chunk {
-                background-color: #4CAF50;
-                border-radius: 6px;
-            }
-        """)
-
-        # Inicializar MediaPipe
-        self.mp_hands = mp.solutions.hands
-        self.hands = self.mp_hands.Hands(static_image_mode=False, max_num_hands=2, min_detection_confidence=0.5)
-
-        # Cargar modelo
-        self.model = tf.keras.models.load_model('models/actions.keras')
-        with open('models/label_map.json', 'r') as f:
-            self.label_map = json.load(f)
-
-        # Variables
-        self.sequence = []
-        self.sentence = []
-        self.translation_history = []
-        self.threshold = 0.7
+        # Variables principales
         self.cap = None
-        self.current_confidence = 0.0
-
-        self.setup_ui()
-
-        # Timer para actualizar video
+        self.model = None
+        self.label_map = {}
+        self.sequence = []
+        self.current_word = ""
+        self.sentence = []
+        self.is_detecting = False
+        
+        # Estadísticas
+        self.words_count = 0
+        self.translation_history = []
+        
+        # Configurar MediaPipe
+        self.mp_holistic = mp.solutions.holistic
+        self.holistic = self.mp_holistic.Holistic(
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5
+        )
+        
+        # Timer para video
         self.timer = QTimer()
-        self.timer.timeout.connect(self.update_frame)
-
+        self.timer.timeout.connect(self.process_frame)
+        
+        # Configurar interfaz y cargar modelo
+        self.setup_ui()
+        self.load_model()
+        self.start_camera()
+        
     def setup_ui(self):
+        """Configurar interfaz bonita"""
         # Widget central y layout principal
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
@@ -157,319 +99,432 @@ class SignTranslatorGUI(QMainWindow):
         self.left_panel = QWidget()
         self.left_layout = QVBoxLayout(self.left_panel)
         self.left_layout.setSpacing(15)
-
-        # Grupo de video
-        self.video_group = QGroupBox("📹 Cámara en Tiempo Real")
-        self.video_layout = QVBoxLayout(self.video_group)
         
-        # Frame del video con borde
-        self.video_frame = QFrame()
-        self.video_frame.setFrameStyle(QFrame.Box | QFrame.Raised)
-        self.video_frame.setLineWidth(2)
-        self.video_frame.setStyleSheet("""
-            QFrame {
-                border: 3px solid #4CAF50;
-                border-radius: 12px;
-                background-color: #000000;
-            }
-        """)
-        self.video_frame_layout = QVBoxLayout(self.video_frame)
+        # Título
+        title_label = QLabel("📹 Cámara en Tiempo Real")
+        title_label.setFont(QFont("Arial", 16, QFont.Bold))
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setStyleSheet("color: #2C3E50; margin: 10px;")
+        self.left_layout.addWidget(title_label)
         
-        self.video_label = QLabel("Cámara sin inicializar")
-        self.video_label.setAlignment(Qt.AlignCenter)
+        # Video
+        self.video_label = QLabel()
         self.video_label.setMinimumSize(640, 480)
         self.video_label.setStyleSheet("""
             QLabel {
-                color: #888888;
-                font-size: 18px;
-                font-weight: bold;
+                border: 3px solid #3498DB;
+                border-radius: 15px;
+                background-color: #F8F9FA;
             }
         """)
-        self.video_frame_layout.addWidget(self.video_label)
+        self.video_label.setAlignment(Qt.AlignCenter)
+        self.video_label.setText("🎥 Iniciando cámara...")
+        self.left_layout.addWidget(self.video_label)
         
-        self.video_layout.addWidget(self.video_frame)
-
-        # Panel de controles
-        self.controls_group = QGroupBox("🎮 Controles")
-        self.controls_layout = QHBoxLayout(self.controls_group)
-        self.controls_layout.setSpacing(15)
-
-        self.start_btn = AnimatedButton("▶️ Iniciar Traducción", "#4CAF50")
-        self.start_btn.clicked.connect(self.start_translation)
+        # Controles
+        controls_group = QGroupBox("🎮 Controles")
+        controls_group.setFont(QFont("Arial", 12, QFont.Bold))
+        controls_layout = QHBoxLayout(controls_group)
         
-        self.stop_btn = AnimatedButton("⏹️ Detener", "#f44336")
-        self.stop_btn.clicked.connect(self.stop_translation)
-        self.stop_btn.setEnabled(False)
-
-        self.controls_layout.addWidget(self.start_btn)
-        self.controls_layout.addWidget(self.stop_btn)
-        self.controls_layout.addStretch()
-
-        self.left_layout.addWidget(self.video_group)
-        self.left_layout.addWidget(self.controls_group)
-
-        # Panel derecho - Traducción e información
+        self.btn_toggle = AnimatedButton("▶️ INICIAR DETECCIÓN", "#4CAF50")
+        self.btn_toggle.clicked.connect(self.toggle_detection)
+        controls_layout.addWidget(self.btn_toggle)
+        
+        self.btn_clear = AnimatedButton("🗑️ LIMPIAR", "#FF5722")
+        self.btn_clear.clicked.connect(self.clear_translation)
+        controls_layout.addWidget(self.btn_clear)
+        
+        self.left_layout.addWidget(controls_group)
+        
+        # Panel derecho - Resultados y estadísticas
         self.right_panel = QWidget()
         self.right_layout = QVBoxLayout(self.right_panel)
         self.right_layout.setSpacing(15)
-
-        # Grupo de traducción actual
-        self.translation_group = QGroupBox("🔤 Traducción Actual")
-        self.translation_layout = QVBoxLayout(self.translation_group)
         
-        self.current_translation_label = QLabel("Esperando señas...")
+        # Traducción actual
+        translation_group = QGroupBox("🎯 Traducción Actual")
+        translation_group.setFont(QFont("Arial", 12, QFont.Bold))
+        translation_layout = QVBoxLayout(translation_group)
+        
+        self.current_translation_label = QLabel("🤲 Presiona INICIAR y muestra las manos")
         self.current_translation_label.setAlignment(Qt.AlignCenter)
         self.current_translation_label.setStyleSheet("""
             QLabel {
-                background-color: #2d2d2d;
-                border: 2px solid #4CAF50;
+                background-color: #E8F4FD;
+                border: 2px solid #3498DB;
                 border-radius: 12px;
                 padding: 20px;
-                font-size: 28px;
+                font-size: 24px;
                 font-weight: bold;
-                color: #4CAF50;
+                color: #2C3E50;
                 min-height: 80px;
             }
         """)
-        self.translation_layout.addWidget(self.current_translation_label)
-
+        translation_layout.addWidget(self.current_translation_label)
+        
         # Barra de confianza
-        self.confidence_label = QLabel("Confianza: 0%")
-        self.confidence_label.setStyleSheet("font-size: 14px; color: #cccccc;")
+        confidence_layout = QHBoxLayout()
+        confidence_layout.addWidget(QLabel("Confianza:"))
+        
         self.confidence_bar = QProgressBar()
         self.confidence_bar.setRange(0, 100)
         self.confidence_bar.setValue(0)
+        self.confidence_bar.setStyleSheet("""
+            QProgressBar {
+                border: 2px solid #BDC3C7;
+                border-radius: 8px;
+                text-align: center;
+                font-weight: bold;
+            }
+            QProgressBar::chunk {
+                background-color: #27AE60;
+                border-radius: 6px;
+            }
+        """)
+        confidence_layout.addWidget(self.confidence_bar)
         
-        self.translation_layout.addWidget(self.confidence_label)
-        self.translation_layout.addWidget(self.confidence_bar)
-
-        # Grupo de historial
-        self.history_group = QGroupBox("📝 Historial de Traducciones")
-        self.history_layout = QVBoxLayout(self.history_group)
+        self.confidence_label = QLabel("0%")
+        self.confidence_label.setMinimumWidth(60)
+        confidence_layout.addWidget(self.confidence_label)
+        
+        translation_layout.addLayout(confidence_layout)
+        self.right_layout.addWidget(translation_group)
+        
+        # Estado del sistema
+        status_group = QGroupBox("📊 Estado del Sistema")
+        status_group.setFont(QFont("Arial", 12, QFont.Bold))
+        status_layout = QVBoxLayout(status_group)
+        
+        self.status_label = QLabel("⏸️ Detección pausada")
+        self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setStyleSheet("""
+            QLabel {
+                background-color: #FFF3E0;
+                border: 2px solid #FF9800;
+                border-radius: 8px;
+                padding: 10px;
+                font-size: 16px;
+                font-weight: bold;
+            }
+        """)
+        status_layout.addWidget(self.status_label)
+        self.right_layout.addWidget(status_group)
+        
+        # Historial
+        history_group = QGroupBox("📝 Historial de Traducciones")
+        history_group.setFont(QFont("Arial", 12, QFont.Bold))
+        history_layout = QVBoxLayout(history_group)
         
         self.history_text = QTextEdit()
-        self.history_text.setReadOnly(True)
         self.history_text.setMaximumHeight(200)
-        self.history_text.setPlaceholderText("Las traducciones aparecerán aquí...")
-        self.history_layout.addWidget(self.history_text)
-
-        # Grupo de estadísticas
-        self.stats_group = QGroupBox("📊 Estadísticas")
-        self.stats_layout = QVBoxLayout(self.stats_group)
+        self.history_text.setStyleSheet("""
+            QTextEdit {
+                background-color: #F8F9FA;
+                border: 2px solid #DEE2E6;
+                border-radius: 8px;
+                padding: 10px;
+                font-family: 'Courier New';
+                font-size: 12px;
+            }
+        """)
+        history_layout.addWidget(self.history_text)
+        self.right_layout.addWidget(history_group)
+        
+        # Estadísticas
+        stats_group = QGroupBox("📈 Estadísticas")
+        stats_group.setFont(QFont("Arial", 12, QFont.Bold))
+        stats_layout = QVBoxLayout(stats_group)
         
         self.words_translated_label = QLabel("Palabras traducidas: 0")
-        self.session_time_label = QLabel("Tiempo de sesión: 00:00")
         self.avg_confidence_label = QLabel("Confianza promedio: 0%")
         
-        for label in [self.words_translated_label, self.session_time_label, self.avg_confidence_label]:
-            label.setStyleSheet("font-size: 14px; padding: 5px; color: #cccccc;")
-            self.stats_layout.addWidget(label)
-
-        # Agregar grupos al panel derecho
-        self.right_layout.addWidget(self.translation_group)
-        self.right_layout.addWidget(self.history_group)
-        self.right_layout.addWidget(self.stats_group)
-        self.right_layout.addStretch()
-
+        for label in [self.words_translated_label, self.avg_confidence_label]:
+            label.setStyleSheet("font-size: 14px; padding: 5px;")
+            stats_layout.addWidget(label)
+        
+        self.right_layout.addWidget(stats_group)
+        
         # Agregar paneles al layout principal
-        self.main_layout.addWidget(self.left_panel, 2)  # 2/3 del espacio
-        self.main_layout.addWidget(self.right_panel, 1)  # 1/3 del espacio
-
-    def extract_keypoints(self, results):
-        keypoints = []
-        if results.multi_hand_landmarks:
-            for hand_landmarks in results.multi_hand_landmarks:
-                for landmark in hand_landmarks.landmark:
-                    keypoints.extend([landmark.x, landmark.y, landmark.z])
-        while len(keypoints) < 126:
-            keypoints.append(0)
-        return np.array(keypoints[:126])
-
-   
-
-    def start_translation(self):
-        os_name = platform.system().lower()
-        if "windows" in os_name:
-            self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-        else:
-            self.cap = cv2.VideoCapture("/dev/video0")
-
-        if not self.cap.isOpened():
-            self.current_translation_label.setText("❌ Error: No se puede acceder a la cámara")
-            self.current_translation_label.setStyleSheet("""
+        self.main_layout.addWidget(self.left_panel, 2)
+        self.main_layout.addWidget(self.right_panel, 1)
+        
+        # Estilo general de la ventana
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #FFFFFF;
+            }
+            QGroupBox {
+                font-weight: bold;
+                border: 2px solid #BDC3C7;
+                border-radius: 10px;
+                margin: 5px;
+                padding-top: 15px;
+                background-color: #FAFAFA;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 10px 0 10px;
+                color: #2C3E50;
+            }
+        """)
+    
+    def load_model(self):
+        """Cargar modelo y configuraciones"""
+        try:
+            print("🔄 Cargando modelo...")
+            self.model = tf.keras.models.load_model('models/actions_smart.keras')
+            with open('models/label_map_smart.json', 'r') as f:
+                self.label_map = json.load(f)
+            print("✅ Modelo cargado exitosamente")
+            return True
+        except Exception as e:
+            print(f"❌ Error cargando modelo: {e}")
+            self.current_translation_label.setText("❌ Error: No se puede cargar el modelo")
+            return False
+    
+    def start_camera(self):
+        """Iniciar cámara"""
+        self.cap = cv2.VideoCapture(0)
+        if self.cap.isOpened():
+            self.timer.start(30)  # 30ms = ~33 FPS
+            
+    def toggle_detection(self):
+        """Activar/desactivar detección"""
+        self.is_detecting = not self.is_detecting
+        
+        if self.is_detecting:
+            self.btn_toggle.setText("⏸️ PAUSAR DETECCIÓN")
+            self.btn_toggle.base_color = "#FF5722"
+            self.btn_toggle.setStyleSheet(self.btn_toggle.get_base_style())
+            self.status_label.setText("🟢 Detección ACTIVA - Haz una seña clara")
+            self.status_label.setStyleSheet("""
                 QLabel {
-                    background-color: #2d2d2d;
-                    border: 2px solid #f44336;
-                    border-radius: 12px;
-                    padding: 20px;
-                    font-size: 28px;
+                    background-color: #E8F5E8;
+                    border: 2px solid #4CAF50;
+                    border-radius: 8px;
+                    padding: 10px;
+                    font-size: 16px;
                     font-weight: bold;
-                    color: #f44336;
-                    min-height: 80px;
+                    color: #2E7D32;
                 }
             """)
-            return
-
-        self.sequence = []
+        else:
+            self.btn_toggle.setText("▶️ INICIAR DETECCIÓN")
+            self.btn_toggle.base_color = "#4CAF50"
+            self.btn_toggle.setStyleSheet(self.btn_toggle.get_base_style())
+            self.status_label.setText("⏸️ Detección PAUSADA")
+            self.status_label.setStyleSheet("""
+                QLabel {
+                    background-color: #FFF3E0;
+                    border: 2px solid #FF9800;
+                    border-radius: 8px;
+                    padding: 10px;
+                    font-size: 16px;
+                    font-weight: bold;
+                }
+            """)
+            self.sequence = []
+            self.confidence_bar.setValue(0)
+            self.confidence_label.setText("0%")
+    
+    def clear_translation(self):
+        """Limpiar traducciones"""
         self.sentence = []
+        self.current_word = ""
         self.translation_history = []
         self.words_count = 0
-
-        # UI update
-        self.start_btn.setEnabled(False)
-        self.stop_btn.setEnabled(True)
-        self.current_translation_label.setText("🔍 Analizando señas...")
-        self.current_translation_label.setStyleSheet("""
-            QLabel {
-                background-color: #2d2d2d;
-                border: 2px solid #FF9800;
-                border-radius: 12px;
-                padding: 20px;
-                font-size: 28px;
-                font-weight: bold;
-                color: #FF9800;
-                min-height: 80px;
-            }
-        """)
-
-        self.timer.start(30)  # 30 ms
-  # Actualizar cada 30ms
-
-    def stop_translation(self):
-        self.timer.stop()
-        if self.cap:
-            self.cap.release()
-            self.cap = None
-            
-        # Actualizar UI
-        self.start_btn.setEnabled(True)
-        self.stop_btn.setEnabled(False)
-        self.video_label.setText("Cámara detenida")
-        self.video_label.setStyleSheet("""
-            QLabel {
-                color: #888888;
-                font-size: 18px;
-                font-weight: bold;
-            }
-        """)
-        self.current_translation_label.setText("⏹️ Traducción detenida")
-        self.current_translation_label.setStyleSheet("""
-            QLabel {
-                background-color: #2d2d2d;
-                border: 2px solid #888888;
-                border-radius: 12px;
-                padding: 20px;
-                font-size: 28px;
-                font-weight: bold;
-                color: #888888;
-                min-height: 80px;
-            }
-        """)
-
-    def update_frame(self):
+        self.sequence = []
+        
+        self.current_translation_label.setText("🧹 Historial limpiado")
+        self.history_text.clear()
+        self.words_translated_label.setText("Palabras traducidas: 0")
+        self.avg_confidence_label.setText("Confianza promedio: 0%")
+        self.confidence_bar.setValue(0)
+        self.confidence_label.setText("0%")
+    
+    def extract_keypoints(self, results):
+        """Extraer keypoints de las manos"""
+        lh = np.array([[res.x, res.y, res.z] for res in results.left_hand_landmarks.landmark]).flatten() if results.left_hand_landmarks else np.zeros(21*3)
+        rh = np.array([[res.x, res.y, res.z] for res in results.right_hand_landmarks.landmark]).flatten() if results.right_hand_landmarks else np.zeros(21*3)
+        return np.concatenate([lh, rh])
+    
+    def process_frame(self):
+        """Procesar cada frame del video"""
         ret, frame = self.cap.read()
         if not ret:
             return
-
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = self.hands.process(frame_rgb)
-
-        # Dibujar landmarks con mejor visualización
-        if results.multi_hand_landmarks:
-            mp_drawing = mp.solutions.drawing_utils
-            mp_drawing_styles = mp.solutions.drawing_styles
-            for hand_landmarks in results.multi_hand_landmarks:
-                mp_drawing.draw_landmarks(
-                    frame, hand_landmarks, self.mp_hands.HAND_CONNECTIONS,
-                    mp_drawing_styles.get_default_hand_landmarks_style(),
-                    mp_drawing_styles.get_default_hand_connections_style()
-                )
-
+            
+        # Voltear para efecto espejo
+        frame = cv2.flip(frame, 1)
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        
+        # Procesar con MediaPipe
+        results = self.holistic.process(rgb_frame)
+        
+        # Dibujar landmarks
+        if results.left_hand_landmarks or results.right_hand_landmarks:
+            mp_draw = mp.solutions.drawing_utils
+            if results.left_hand_landmarks:
+                mp_draw.draw_landmarks(frame, results.left_hand_landmarks, self.mp_holistic.HAND_CONNECTIONS)
+            if results.right_hand_landmarks:
+                mp_draw.draw_landmarks(frame, results.right_hand_landmarks, self.mp_holistic.HAND_CONNECTIONS)
+        
+        # Solo detectar si está activo
+        if self.is_detecting:
+            self.detect_sign(results)
+        
+        # Mostrar frame
+        self.display_frame(frame)
+    
+    def detect_sign(self, results):
+        """LÓGICA SIMPLE QUE FUNCIONA"""
+        # Solo procesar si hay manos
+        if not (results.left_hand_landmarks or results.right_hand_landmarks):
+            self.current_translation_label.setText("🤲 Muestra las manos frente a la cámara")
+            self.sequence = []
+            self.confidence_bar.setValue(0)
+            self.confidence_label.setText("Sin manos")
+            return
+        
         # Extraer keypoints
-        kp = self.extract_keypoints(results)
-        self.sequence.append(kp)
-        self.sequence = self.sequence[-10:]  # Mantener últimos 10 frames
-
-        if len(self.sequence) == 10:
-            res = self.model.predict(np.expand_dims(np.array(self.sequence), axis=0))[0]
-            self.current_confidence = res[np.argmax(res)]
+        keypoints = self.extract_keypoints(results)
+        self.sequence.append(keypoints)
+        
+        # Mantener solo últimos 15 frames
+        if len(self.sequence) > 15:
+            self.sequence = self.sequence[-15:]
+        
+        # Solo predecir cuando tengamos 15 frames completos
+        if len(self.sequence) == 15:
+            sequence_array = np.array(self.sequence)
             
-            # Actualizar barra de confianza
-            confidence_percent = int(self.current_confidence * 100)
-            self.confidence_bar.setValue(confidence_percent)
-            self.confidence_label.setText(f"Confianza: {confidence_percent}%")
+            # Verificar que hay datos suficientes
+            non_zero_ratio = np.count_nonzero(sequence_array) / sequence_array.size
             
-            if self.current_confidence > self.threshold:
-                action_idx = np.argmax(res)
-                action = self.label_map[str(action_idx)]
+            if non_zero_ratio > 0.4:  # Al menos 40% de datos
+                # Normalización simple
+                for frame in sequence_array:
+                    non_zero_mask = frame != 0
+                    if np.any(non_zero_mask):
+                        mean_val = np.mean(frame[non_zero_mask])
+                        std_val = np.std(frame[non_zero_mask])
+                        if std_val > 0:
+                            frame[non_zero_mask] = (frame[non_zero_mask] - mean_val) / std_val
                 
-                if not self.sentence or self.sentence[-1] != action:
-                    self.sentence.append(action)
-                    if len(self.sentence) > 5:
-                        self.sentence = self.sentence[-5:]
+                # Predicción
+                try:
+                    prediction = self.model.predict(np.expand_dims(sequence_array, axis=0), verbose=0)[0]
                     
-                    # Actualizar traducción actual
-                    current_text = " ".join(self.sentence)
-                    self.current_translation_label.setText(f"✅ {current_text}")
-                    self.current_translation_label.setStyleSheet("""
-                        QLabel {
-                            background-color: #2d2d2d;
-                            border: 2px solid #4CAF50;
-                            border-radius: 12px;
-                            padding: 20px;
-                            font-size: 28px;
-                            font-weight: bold;
-                            color: #4CAF50;
-                            min-height: 80px;
-                        }
-                    """)
+                    # Criterios simples que funcionan
+                    max_idx = np.argmax(prediction)
+                    max_confidence = prediction[max_idx]
                     
-                    # Agregar al historial
-                    self.translation_history.append(f"• {action} (Confianza: {confidence_percent}%)")
-                    if len(self.translation_history) > 20:
-                        self.translation_history = self.translation_history[-20:]
+                    # Segunda mayor confianza
+                    sorted_indices = np.argsort(prediction)[::-1]
+                    second_confidence = prediction[sorted_indices[1]]
+                    difference = max_confidence - second_confidence
                     
-                    self.history_text.setPlainText("\n".join(reversed(self.translation_history)))
+                    # Actualizar barra de confianza
+                    confidence_percent = int(max_confidence * 100)
+                    self.confidence_bar.setValue(confidence_percent)
+                    self.confidence_label.setText(f"{confidence_percent}%")
                     
-                    # Actualizar estadísticas
-                    self.words_count += 1
-                    self.words_translated_label.setText(f"Palabras traducidas: {self.words_count}")
-                    
-                    # Calcular confianza promedio
-                    confidences = [float(line.split('(Confianza: ')[1].split('%')[0]) 
-                                 for line in self.translation_history if 'Confianza:' in line]
-                    if confidences:
-                        avg_conf = sum(confidences) / len(confidences)
-                        self.avg_confidence_label.setText(f"Confianza promedio: {avg_conf:.1f}%")
-                    
-                    # Hablar (en hilo separado para no bloquear UI)
-                    try:
-                        engine = pyttsx3.init()
-                        engine.say(action)
-                        engine.runAndWait()
-                    except:
-                        pass  # Continuar si falla el TTS
-
-        # Mostrar frame en QLabel con mejor escalado
+                    # CRITERIOS SIMPLES: confianza > 60% Y diferencia > 30%
+                    if max_confidence > 0.6 and difference > 0.3:
+                        # Encontrar nombre de la acción
+                        predicted_action = None
+                        for action, idx in self.label_map.items():
+                            if idx == max_idx:
+                                predicted_action = action
+                                break
+                        
+                        if predicted_action and predicted_action != self.current_word:
+                            self.current_word = predicted_action
+                            self.sentence.append(predicted_action)
+                            
+                            # Actualizar interfaz
+                            current_text = " ".join(self.sentence[-5:])  # Últimas 5 palabras
+                            self.current_translation_label.setText(f"🎯 {current_text.upper()}")
+                            self.current_translation_label.setStyleSheet("""
+                                QLabel {
+                                    background-color: #E8F5E8;
+                                    border: 2px solid #4CAF50;
+                                    border-radius: 12px;
+                                    padding: 20px;
+                                    font-size: 28px;
+                                    font-weight: bold;
+                                    color: #2E7D32;
+                                    min-height: 80px;
+                                }
+                            """)
+                            
+                            # Actualizar historial
+                            self.translation_history.append(f"• {predicted_action} (Confianza: {confidence_percent}%)")
+                            self.history_text.setPlainText("\n".join(reversed(self.translation_history[-10:])))
+                            
+                            # Estadísticas
+                            self.words_count += 1
+                            self.words_translated_label.setText(f"Palabras traducidas: {self.words_count}")
+                            
+                            # Hablar
+                            self.speak(predicted_action)
+                            
+                            # Limpiar secuencia para próxima detección
+                            self.sequence = []
+                    else:
+                        # Señal no clara
+                        self.current_translation_label.setText(f"🤔 Señal no clara (Conf: {confidence_percent}%, Dif: {int(difference*100)}%)")
+                        self.current_translation_label.setStyleSheet("""
+                            QLabel {
+                                background-color: #FFF9C4;
+                                border: 2px solid #FFC107;
+                                border-radius: 12px;
+                                padding: 20px;
+                                font-size: 18px;
+                                font-weight: bold;
+                                color: #F57F17;
+                                min-height: 80px;
+                            }
+                        """)
+                        
+                except Exception as e:
+                    self.current_translation_label.setText(f"❌ Error en predicción: {str(e)[:50]}")
+            else:
+                self.current_translation_label.setText("📊 Datos insuficientes - Haz una seña más clara")
+    
+    def speak(self, text):
+        """Reproducir texto con voz"""
+        try:
+            engine = pyttsx3.init()
+            engine.say(text)
+            engine.runAndWait()
+        except:
+            print(f"No se pudo reproducir: {text}")
+    
+    def display_frame(self, frame):
+        """Mostrar frame en la interfaz"""
         h, w, ch = frame.shape
         bytes_per_line = ch * w
-        qt_image = QImage(frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
-        pixmap = QPixmap.fromImage(qt_image)
+        qt_image = QImage(frame.data, w, h, bytes_per_line, QImage.Format_BGR888)
+        qt_image = qt_image.rgbSwapped()  # BGR a RGB
         
-        # Escalar manteniendo aspecto y ajustando al contenedor
+        pixmap = QPixmap.fromImage(qt_image)
         scaled_pixmap = pixmap.scaled(
-            self.video_label.width(), 
-            self.video_label.height(), 
+            self.video_label.size(), 
             Qt.KeepAspectRatio, 
             Qt.SmoothTransformation
         )
         self.video_label.setPixmap(scaled_pixmap)
-
+    
     def closeEvent(self, event):
-        self.stop_translation()
+        """Limpiar al cerrar"""
+        if self.cap:
+            self.cap.release()
         event.accept()
 
 if __name__ == "__main__":
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Reducir warnings de TensorFlow
     app = QApplication(sys.argv)
     window = SignTranslatorGUI()
     window.show()
