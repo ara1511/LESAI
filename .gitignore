@@ -172,5 +172,11 @@ poetry.toml
 
 # LSP config files
 pyrightconfig.json
-
-# End of https://www.toptal.com/developers/gitignore/api/python
+data/
+src/models 
+src/models/*.keras
+src/models/*.h5
+__pycache__/
+*.pyc
+.DS_Store
+data/frame_actions/
