@@ -1,6 +1,7 @@
 import sys
 import os
 import platform
+import threading  # Para que la voz no bloquee la GUI
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import cv2
@@ -16,6 +17,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QLabel, QPushButton,
                             QFrame, QGroupBox, QProgressBar, QTextEdit, QSplitter)
 from PyQt5.QtCore import QTimer, Qt, QPropertyAnimation, QEasingCurve, pyqtProperty
 from PyQt5.QtGui import QImage, QPixmap, QFont, QColor, QPalette, QIcon
+from utils.constants import MODELS_PATH
 
 class AnimatedButton(QPushButton):
     def __init__(self, text, color="#4CAF50"):
@@ -53,7 +55,6 @@ class AnimatedButton(QPushButton):
         """
     
     def lighten_color(self, color):
-        # Simplificado para demostración
         if color == "#4CAF50":
             return "#66BB6A"
         elif color == "#f44336":
@@ -127,8 +128,8 @@ class SignTranslatorGUI(QMainWindow):
         self.hands = self.mp_hands.Hands(static_image_mode=False, max_num_hands=2, min_detection_confidence=0.5)
 
         # Cargar modelo
-        self.model = tf.keras.models.load_model('models/actions.keras')
-        with open('models/label_map.json', 'r') as f:
+        self.model = tf.keras.models.load_model(f'{MODELS_PATH}/actions.keras')
+        with open(f'{MODELS_PATH}/label_map.json', 'r') as f:
             self.label_map = json.load(f)
 
         # Variables
@@ -285,8 +286,6 @@ class SignTranslatorGUI(QMainWindow):
             keypoints.append(0)
         return np.array(keypoints[:126])
 
-   
-
     def start_translation(self):
         os_name = platform.system().lower()
         if "windows" in os_name:
@@ -332,8 +331,7 @@ class SignTranslatorGUI(QMainWindow):
             }
         """)
 
-        self.timer.start(30)  # 30 ms
-  # Actualizar cada 30ms
+        self.timer.start(30)  # Actualizar cada 30ms
 
     def stop_translation(self):
         self.timer.stop()
@@ -391,7 +389,7 @@ class SignTranslatorGUI(QMainWindow):
         self.sequence = self.sequence[-10:]  # Mantener últimos 10 frames
 
         if len(self.sequence) == 10:
-            res = self.model.predict(np.expand_dims(np.array(self.sequence), axis=0))[0]
+            res = self.model.predict(np.expand_dims(np.array(self.sequence), axis=0), verbose=0)[0]
             self.current_confidence = res[np.argmax(res)]
             
             # Actualizar barra de confianza
@@ -442,13 +440,18 @@ class SignTranslatorGUI(QMainWindow):
                         avg_conf = sum(confidences) / len(confidences)
                         self.avg_confidence_label.setText(f"Confianza promedio: {avg_conf:.1f}%")
                     
-                    # Hablar (en hilo separado para no bloquear UI)
-                    try:
-                        engine = pyttsx3.init()
-                        engine.say(action)
-                        engine.runAndWait()
-                    except:
-                        pass  # Continuar si falla el TTS
+                    # Hablar en un hilo separado para no bloquear la UI
+                    def speak_text():
+                        try:
+                            engine = pyttsx3.init()
+                            engine.say(action)
+                            engine.runAndWait()
+                        except Exception as e:
+                            print(f"Error en TTS: {e}")
+                    
+                    tts_thread = threading.Thread(target=speak_text)
+                    tts_thread.daemon = True
+                    tts_thread.start()
 
         # Mostrar frame en QLabel con mejor escalado
         h, w, ch = frame.shape

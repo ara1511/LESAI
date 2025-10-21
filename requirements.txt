@@ -1,6 +1,6 @@
 # Visión por computadora y procesamiento de imagen
 opencv-python==4.8.1.78
-mediapipe==0.10.7
+
 
 # Computación numérica y científica
 numpy==1.24.3
@@ -29,3 +29,5 @@ pygame==2.5.2
 # Dependencias del sistema (para compatibilidad)
 setuptools>=65.0.0
 wheel>=0.37.0
+cv2==4.8.1.78
+mediapipe==0.10.7
