@@ -1,8 +1,3 @@
-"""
-Script para RECAMPURAR TODAS las muestras desde cero.
-Versión compatible con todas las versiones de MediaPipe.
-GUI visual con rostro y manos.
-"""
 import os
 import cv2
 import numpy as np

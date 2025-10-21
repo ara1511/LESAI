@@ -1,5 +1,3 @@
-# CONFIGURACIÓN GLOBAL
-
 SEQUENCE_LENGTH = 10          # Número de frames por secuencia
 KEYPOINT_DIM = 216            # 21 puntos x 3 coordenadas x 2 manos = 126
 
@@ -10,6 +8,6 @@ ACTIONS = ['gracias', 'hola', 'adios']
 NO_SEQUENCES = 30
 
 # Rutas
-DATA_PATH = 'data/frame_actions'    # Ya no se usará
+DATA_PATH = 'data/frame_actions'
 KEYPOINTS_PATH = 'data/keypoints'
 MODELS_PATH = 'src/models'

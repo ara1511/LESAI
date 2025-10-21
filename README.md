@@ -50,9 +50,10 @@
 
 ### 🎯 Señas Reconocidas
 
-Actualmente el sistema reconoce las siguientes señas básicas:
+Actualmente el sistema reconoce las siguientes señas básicas de LSA:
 
 - 👋 **"Hola"** - Saludo básico
+- 🙏 **"Gracias"** - Expresión de agradecimiento  
 - 👋 **"Adiós"** - Despedida
 
 > **Nota**: El sistema está diseñado para ser expandible. Puedes agregar más señas entrenando el modelo con nuevos datos.
@@ -78,7 +79,7 @@ graph TD
 
 - **🎥 Captura de Video**: OpenCV para manejo de cámara web
 - **👋 Detección de Manos**: MediaPipe para localización precisa de manos
-- **📊 Extracción de Características**: 126 puntos clave por frame (21 puntos × 2 manos × 3 coordenadas)
+- **� Extracción de Características**: 216 puntos clave por frame (21 puntos × 2 manos × 3 coordenadas + pose)
 - **🧠 Modelo de IA**: Red neuronal densa entrenada con secuencias temporales
 - **🖥️ Interfaz de Usuario**: PyQt5 con diseño moderno y responsivo
 - **🔊 Audio**: pyttsx3 para síntesis de voz en español
@@ -196,25 +197,33 @@ Los datos se mantienen entre ejecuciones gracias a los volúmenes:
 
 ```
 LESAI/
+├── 📁 assets/                  # Recursos gráficos
+│   └── 🖼️ LS.png              # Logo del proyecto
 ├── 📁 data/                    # Datos de entrenamiento
 │   ├── 📁 frame_actions/       # Imágenes por acción y secuencia
 │   │   ├── 📁 adios/          # Señas de "adiós"
+│   │   ├── 📁 gracias/        # Señas de "gracias"
 │   │   └── 📁 hola/           # Señas de "hola"
 │   └── 📁 keypoints/          # Puntos clave extraídos
 │       ├── 📁 adios/          # Keypoints de "adiós"
+│       ├── 📁 gracias/        # Keypoints de "gracias"
 │       └── 📁 hola/           # Keypoints de "hola"
-├── 📁 models/                  # Modelos entrenados
-│   ├── 🧠 actions.keras       # Modelo principal
-│   └── 📋 label_map.json      # Mapeo de etiquetas
-├── 📁 src/                     # Código fuente
+├── 📁 docs/                    # Documentación adicional
+├── 📁 scripts/                 # Scripts de utilidad
+├── 📁 src/                     # Código fuente principal
 │   ├── 🎮 main_gui.py         # Interfaz principal
 │   ├── 📸 capture_samples.py  # Captura de muestras
 │   ├── 🔢 create_keypoints.py # Extracción de keypoints
-│   └── 🏋️ train_model.py      # Entrenamiento del modelo
-├── 📁 utils/                   # Utilidades
+│   ├── 🏋️ train_model.py      # Entrenamiento del modelo
+│   └── 📁 models/             # Modelos entrenados
+│       ├── 🧠 actions.keras   # Modelo principal
+│       └── 📋 label_map.json  # Mapeo de etiquetas
+├── 📁 tests/                   # Scripts de prueba
+├── 📁 utils/                   # Utilidades del proyecto
 │   ├── 📏 constants.py        # Constantes del proyecto
 │   └── 🔊 text_to_speech.py   # Síntesis de voz
-├── 📋 requirements.txt         # Dependencias
+├── 📋 requirements.txt         # Dependencias de Python
+├── 🙈 .gitignore              # Archivos ignorados por Git
 └── 📖 README.md               # Este archivo
 ```
 
@@ -227,14 +236,18 @@ LESAI/
 Puedes modificar estos parámetros en `utils/constants.py`:
 
 ```python
-# Configuración de detección
-MIN_DETECTION_CONFIDENCE = 0.5    # Confianza mínima para detección
-PREDICTION_THRESHOLD = 0.7        # Umbral para predicciones
+# Configuración de secuencias  
 SEQUENCE_LENGTH = 10               # Frames por secuencia
+KEYPOINT_DIM = 216                # Dimensión de keypoints
+NO_SEQUENCES = 30                 # Muestras por acción
 
-# Configuración de interfaz
-WINDOW_WIDTH = 1400               # Ancho de ventana
-WINDOW_HEIGHT = 900               # Alto de ventana
+# Señas reconocidas
+ACTIONS = ['gracias', 'hola', 'adios']
+
+# Rutas del proyecto
+DATA_PATH = 'data/frame_actions'
+KEYPOINTS_PATH = 'data/keypoints' 
+MODELS_PATH = 'src/models'
 ```
 
 ### 🎨 Personalización de Tema
@@ -246,41 +259,49 @@ Modifica los colores en `main_gui.py`:
 
 ### 🧠 Arquitectura del Modelo
 
-- **Entrada**: Secuencias de 10 frames × 126 keypoints
-- **Capas Ocultas**: 3 capas densas (64, 32, 16 neuronas)
+- **Entrada**: Secuencias de 10 frames × 216 keypoints (actualizado)
+- **Capas Ocultas**: Red neuronal con capas LSTM para procesamiento secuencial
 - **Activación**: ReLU en capas ocultas, Softmax en salida
 - **Optimizador**: Adam con learning rate adaptativo
 - **Pérdida**: Categorical Crossentropy
+- **Clases**: 3 señas (hola, gracias, adiós)
 
 
 
 ### 📚 Expandir el Dataset
 
-Para agregar nuevas señas:
+Para agregar nuevas señas al modelo:
 
-1. **Capturar muestras**:
+1. **Capturar muestras nuevas**:
+
    ```bash
-   python src/capture_samples.py
+   python -m capture_samples.py
    ```
 
 2. **Procesar keypoints**:
+
    ```bash
    python src/create_keypoints.py
    ```
 
-3. **Reentrenar modelo**:
+3. **Reentrenar el modelo**:
+
    ```bash
    python src/train_model.py
    ```
 
+El modelo se guardará automáticamente en `src/models/` y estará listo para usar.
+
 
 ### 🎯 Áreas de Mejora
 
-- [ ] Soporte para más señas LS
-- [ ] Optimización de rendimiento
-- [ ] Soporte para múltiples idiomas
+- [ ] Soporte para más señas LSA (en progreso)
+- [ ] Optimización de rendimiento con GPU
+- [ ] Soporte para múltiples idiomas de señas
 - [ ] Integración con dispositivos móviles
-- [ ] Mejoras en la precisión del modelo
+- [ ] Mejoras en la precisión del modelo con más datos
+- [ ] Reconocimiento de expresiones faciales
+- [ ] Modo de práctica interactivo
 
 ---
 
@@ -296,11 +317,12 @@ Para agregar nuevas señas:
 
 ### 📅 Versión 2.0 (Próximamente)
 
-- [ ] 🎯 **50+ señas LS** nuevas
+- [ ] 🎯 **100+ señas LSA** nuevas
 - [ ] 📱 **Aplicación móvil** (Android/iOS)
-- [ ] 🌐 **Interfaz web** con WebRTC
+- [ ] 🌐 **Interfaz web** con WebRTC  
 - [ ] 🔄 **Traducción bidireccional** (texto a señas)
 - [ ] 🎓 **Modo educativo** con lecciones interactivas
+- [ ] 🤖 **IA mejorada** con transformers
 
 ### 📅 Versión 1.5 (En desarrollo)
 

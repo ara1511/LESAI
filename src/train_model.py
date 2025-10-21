@@ -1,6 +1,3 @@
-"""
-Script para entrenar el modelo con datos de 276 dimensiones.
-"""
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
