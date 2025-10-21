@@ -1,10 +1,12 @@
+"""
+Script para entrenar el modelo con datos de 276 dimensiones.
+"""
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 import json
-import os
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout
@@ -34,14 +36,13 @@ def load_data():
             print(f"Advertencia: No se encontró la carpeta para la acción '{action}'.")
             continue
 
-        # Cargar todos los archivos .npy en la carpeta
         seq_files = [f for f in os.listdir(action_path) if f.endswith('.npy')]
         print(f"Cargando {len(seq_files)} muestras para la acción '{action}'.")
 
         for seq_file in seq_files:
             try:
                 keypoints = np.load(os.path.join(action_path, seq_file))
-                # Verificar que la secuencia tenga la forma correcta
+                # Verificar que la forma sea correcta (10, 276)
                 if keypoints.shape == (SEQUENCE_LENGTH, KEYPOINT_DIM):
                     X.append(keypoints)
                     y.append(label_map[action])

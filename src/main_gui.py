@@ -42,11 +42,9 @@ class AnimatedButton(QPushButton):
             }}
             QPushButton:hover {{
                 background-color: {self.lighten_color(self.base_color)};
-                transform: translateY(-2px);
             }}
             QPushButton:pressed {{
                 background-color: {self.darken_color(self.base_color)};
-                transform: translateY(0px);
             }}
             QPushButton:disabled {{
                 background-color: #cccccc;
@@ -123,9 +121,14 @@ class SignTranslatorGUI(QMainWindow):
             }
         """)
 
-        # Inicializar MediaPipe
-        self.mp_hands = mp.solutions.hands
-        self.hands = self.mp_hands.Hands(static_image_mode=False, max_num_hands=2, min_detection_confidence=0.5)
+        # Inicializar MediaPipe Holistic (en lugar de solo Hands)
+        self.mp_holistic = mp.solutions.holistic
+        self.holistic = self.mp_holistic.Holistic(
+            static_image_mode=False,
+            model_complexity=1,
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5
+        )
 
         # Cargar modelo
         self.model = tf.keras.models.load_model(f'{MODELS_PATH}/actions.keras')
@@ -277,14 +280,36 @@ class SignTranslatorGUI(QMainWindow):
         self.main_layout.addWidget(self.right_panel, 1)  # 1/3 del espacio
 
     def extract_keypoints(self, results):
+        """Extrae 216 keypoints de manos y rostro."""
         keypoints = []
-        if results.multi_hand_landmarks:
-            for hand_landmarks in results.multi_hand_landmarks:
-                for landmark in hand_landmarks.landmark:
+        
+        # Mano izquierda (63)
+        if results.left_hand_landmarks:
+            for landmark in results.left_hand_landmarks.landmark:
+                keypoints.extend([landmark.x, landmark.y, landmark.z])
+        else:
+            keypoints.extend([0.0] * 63)
+        
+        # Mano derecha (63)
+        if results.right_hand_landmarks:
+            for landmark in results.right_hand_landmarks.landmark:
+                keypoints.extend([landmark.x, landmark.y, landmark.z])
+        else:
+            keypoints.extend([0.0] * 63)
+        
+        # Rostro (30 puntos = 90 valores)
+        if results.face_landmarks:
+            selected_indices = list(range(0, 10)) + list(range(100, 110)) + list(range(200, 210))
+            for idx in selected_indices:
+                if idx < len(results.face_landmarks.landmark):
+                    landmark = results.face_landmarks.landmark[idx]
                     keypoints.extend([landmark.x, landmark.y, landmark.z])
-        while len(keypoints) < 126:
-            keypoints.append(0)
-        return np.array(keypoints[:126])
+                else:
+                    keypoints.extend([0.0, 0.0, 0.0])
+        else:
+            keypoints.extend([0.0] * 90)
+        
+        return np.array(keypoints[:216], dtype=np.float32)
 
     def start_translation(self):
         os_name = platform.system().lower()
@@ -370,18 +395,19 @@ class SignTranslatorGUI(QMainWindow):
             return
 
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = self.hands.process(frame_rgb)
+        results = self.holistic.process(frame_rgb)
 
-        # Dibujar landmarks con mejor visualización
-        if results.multi_hand_landmarks:
-            mp_drawing = mp.solutions.drawing_utils
-            mp_drawing_styles = mp.solutions.drawing_styles
-            for hand_landmarks in results.multi_hand_landmarks:
-                mp_drawing.draw_landmarks(
-                    frame, hand_landmarks, self.mp_hands.HAND_CONNECTIONS,
-                    mp_drawing_styles.get_default_hand_landmarks_style(),
-                    mp_drawing_styles.get_default_hand_connections_style()
-                )
+        # Dibujar landmarks SIN mp_drawing_styles (compatible)
+        mp_drawing = mp.solutions.drawing_utils
+        
+        if results.pose_landmarks:
+            mp_drawing.draw_landmarks(frame, results.pose_landmarks, self.mp_holistic.POSE_CONNECTIONS)
+        if results.face_landmarks:
+            mp_drawing.draw_landmarks(frame, results.face_landmarks, self.mp_holistic.FACEMESH_CONTOURS)
+        if results.left_hand_landmarks:
+            mp_drawing.draw_landmarks(frame, results.left_hand_landmarks, self.mp_holistic.HAND_CONNECTIONS)
+        if results.right_hand_landmarks:
+            mp_drawing.draw_landmarks(frame, results.right_hand_landmarks, self.mp_holistic.HAND_CONNECTIONS)
 
         # Extraer keypoints
         kp = self.extract_keypoints(results)
