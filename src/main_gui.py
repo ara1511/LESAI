@@ -432,21 +432,10 @@ class SignTranslatorGUI(QMainWindow):
                     if len(self.sentence) > 5:
                         self.sentence = self.sentence[-5:]
                     
-                    # Actualizar traducción actual
+                    # Actualizar traducción actual (concatenacion de palabras)
                     current_text = " ".join(self.sentence)
-                    self.current_translation_label.setText(f"✅ {current_text}")
-                    self.current_translation_label.setStyleSheet("""
-                        QLabel {
-                            background-color: #2d2d2d;
-                            border: 2px solid #4CAF50;
-                            border-radius: 12px;
-                            padding: 20px;
-                            font-size: 28px;
-                            font-weight: bold;
-                            color: #4CAF50;
-                            min-height: 80px;
-                        }
-                    """)
+                    last_action = self.sentence[-1]
+                    self.current_translation_label.setText(f"✅ {last_action}")
                     
                     # Agregar al historial
                     self.translation_history.append(f"• {action} (Confianza: {confidence_percent}%)")
