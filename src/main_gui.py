@@ -400,15 +400,34 @@ class SignTranslatorGUI(QMainWindow):
         # Dibujar landmarks SIN mp_drawing_styles (compatible)
         mp_drawing = mp.solutions.drawing_utils
         
-        if results.pose_landmarks:
-            mp_drawing.draw_landmarks(frame, results.pose_landmarks, self.mp_holistic.POSE_CONNECTIONS)
+        mp_drawing = mp.solutions.drawing_utils
+        
         if results.face_landmarks:
-            mp_drawing.draw_landmarks(frame, results.face_landmarks, self.mp_holistic.FACEMESH_CONTOURS)
+            mp_drawing.draw_landmarks(
+                frame, 
+                results.face_landmarks, 
+                self.mp_holistic.FACEMESH_CONTOURS,
+                mp_drawing.DrawingSpec(color=(0, 255, 255), thickness=1, circle_radius=1),
+                mp_drawing.DrawingSpec(color=(0, 255, 255), thickness=1)
+            )
+        
         if results.left_hand_landmarks:
-            mp_drawing.draw_landmarks(frame, results.left_hand_landmarks, self.mp_holistic.HAND_CONNECTIONS)
+            mp_drawing.draw_landmarks(
+                frame, 
+                results.left_hand_landmarks, 
+                self.mp_holistic.HAND_CONNECTIONS,
+                mp_drawing.DrawingSpec(color=(0, 255, 255), thickness=2, circle_radius=2),
+                mp_drawing.DrawingSpec(color=(0, 255, 255), thickness=2)
+            )
+        
         if results.right_hand_landmarks:
-            mp_drawing.draw_landmarks(frame, results.right_hand_landmarks, self.mp_holistic.HAND_CONNECTIONS)
-
+            mp_drawing.draw_landmarks(
+                frame, 
+                results.right_hand_landmarks, 
+                self.mp_holistic.HAND_CONNECTIONS,
+                mp_drawing.DrawingSpec(color=(0, 255, 255), thickness=2, circle_radius=2),
+                mp_drawing.DrawingSpec(color=(0, 255, 255), thickness=2)
+            )
         # Extraer keypoints
         kp = self.extract_keypoints(results)
         self.sequence.append(kp)

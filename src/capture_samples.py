@@ -1,4 +1,9 @@
+import sys
 import os
+
+# Añadir la carpeta raíz al path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import cv2
 import numpy as np
 import mediapipe as mp
@@ -60,15 +65,15 @@ def main():
         print("❌ Error: No se puede acceder a la cámara.")
         return
 
-    # Configurar ventana
-    cv2.namedWindow('🖐️ Recaptura Visual - LESAI', cv2.WND_PROP_FULLSCREEN)
-    cv2.setWindowProperty('🖐️ Recaptura Visual - LESAI', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    # Configurar ventana (tamaño normal, no fullscreen)
+    cv2.namedWindow('Recaptura Visual - LESAI', cv2.WINDOW_NORMAL)
+    cv2.resizeWindow('Recaptura Visual - LESAI', 800, 600)
 
     print(f"\n🎯 ¡RECAPTURANDO TODAS LAS MUESTRAS DESDE CERO!")
     print(f"📝 Palabras: {ACTIONS}")
     print(f"📊 Total de muestras: {len(ACTIONS) * NO_SEQUENCES}")
     print("ℹ️  El sistema se activará automáticamente al detectar tus manos.")
-    print("ℹ️  Presiona 'q' en cualquier momento para salir.\n")
+    print("ℹ️  Presiona 'q' o 'ESC' en cualquier momento para salir.\n")
 
     for action_idx, action in enumerate(ACTIONS):
         action_path = os.path.join(KEYPOINTS_PATH, action)
@@ -98,15 +103,33 @@ def main():
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 results = holistic.process(frame_rgb)
 
-                # Dibujar landmarks (versión compatible)
-                if results.pose_landmarks:
-                    mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_holistic.POSE_CONNECTIONS)
-                if results.face_landmarks:
-                    mp_drawing.draw_landmarks(frame, results.face_landmarks, mp_holistic.FACEMESH_CONTOURS)
+                # Dibujar solo manos y rostro (sin cuerpo)
                 if results.left_hand_landmarks:
-                    mp_drawing.draw_landmarks(frame, results.left_hand_landmarks, mp_holistic.HAND_CONNECTIONS)
+                    mp_drawing.draw_landmarks(
+                        frame, 
+                        results.left_hand_landmarks, 
+                        mp_holistic.HAND_CONNECTIONS,
+                        mp_drawing.DrawingSpec(color=(0, 255, 255), thickness=2, circle_radius=2),
+                        mp_drawing.DrawingSpec(color=(0, 255, 255), thickness=2)
+                    )
+                
                 if results.right_hand_landmarks:
-                    mp_drawing.draw_landmarks(frame, results.right_hand_landmarks, mp_holistic.HAND_CONNECTIONS)
+                    mp_drawing.draw_landmarks(
+                        frame, 
+                        results.right_hand_landmarks, 
+                        mp_holistic.HAND_CONNECTIONS,
+                        mp_drawing.DrawingSpec(color=(0, 255, 255), thickness=2, circle_radius=2),
+                        mp_drawing.DrawingSpec(color=(0, 255, 255), thickness=2)
+                    )
+                
+                if results.face_landmarks:
+                    mp_drawing.draw_landmarks(
+                        frame, 
+                        results.face_landmarks, 
+                        mp_holistic.FACEMESH_CONTOURS,
+                        mp_drawing.DrawingSpec(color=(0, 255, 255), thickness=1, circle_radius=1),
+                        mp_drawing.DrawingSpec(color=(0, 255, 255), thickness=1)
+                    )
 
                 # Lógica de grabación automática
                 if there_hand(results):
@@ -121,7 +144,7 @@ def main():
                         sequence.append(kp)
                         
                         cv2.putText(frame, f"GRABANDO: {len(sequence)}/{SEQUENCE_LENGTH}", 
-                                   (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                                   (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
                         
                         if len(sequence) >= SEQUENCE_LENGTH:
                             sequence_path = os.path.join(action_path, f"{captured_samples}.npy")
@@ -139,17 +162,19 @@ def main():
                         sequence = []
                         break
 
-                # Mostrar estado
+                # Mostrar estado en la parte inferior
                 status = "LISTO" if not recording else "GRABANDO"
                 color = (0, 255, 0) if not recording else (0, 0, 255)
-                cv2.putText(frame, f"Estado: {status}", (50, frame.shape[0] - 50), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+                cv2.putText(frame, f"Estado: {status}", (10, frame.shape[0] - 40), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
                 cv2.putText(frame, f"'{action}' - Muestra {captured_samples+1}/{NO_SEQUENCES}", 
-                           (50, frame.shape[0] - 100), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+                           (10, frame.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
-                cv2.imshow('🖐️ Recaptura Visual - LESAI', frame)
+                cv2.imshow('Recaptura Visual - LESAI', frame)
                 
-                if cv2.waitKey(1) & 0xFF == ord('q'):
+                # ✅ Salir con 'q' o 'ESC'
+                key = cv2.waitKey(1) & 0xFF
+                if key == ord('q') or key == 27:  # 27 es el código de la tecla Esc
                     cap.release()
                     cv2.destroyAllWindows()
                     print("\n⏹️  Recaptura cancelada por el usuario.")
