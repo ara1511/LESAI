@@ -2,7 +2,6 @@ import sys
 import os
 import platform
 import threading  # Para que la voz no bloquee la GUI
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import cv2
 import os
