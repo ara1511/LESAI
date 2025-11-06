@@ -5,7 +5,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np
 import json
 from sklearn.model_selection import train_test_split
-from tensorflow.keras.models import Sequential
+from keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout
 from tensorflow.keras.utils import to_categorical
 from utils.constants import ACTIONS, KEYPOINTS_PATH, SEQUENCE_LENGTH, KEYPOINT_DIM, MODELS_PATH

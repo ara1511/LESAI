@@ -22,7 +22,7 @@ holistic = mp_holistic.Holistic(
 )
 
 def extract_keypoints(results):
-    """Extrae keypoints de manos y rostro."""
+    """Extrae 126 keypoints de manos solamente."""
     keypoints = []
     
     # Mano izquierda (63)
@@ -39,19 +39,7 @@ def extract_keypoints(results):
     else:
         keypoints.extend([0.0] * 63)
     
-    # Rostro (solo 50 puntos clave)
-    if results.face_landmarks:
-        selected_indices = list(range(0, 10)) + list(range(150, 160)) + list(range(250, 260))
-        for idx in selected_indices:
-            if idx < len(results.face_landmarks.landmark):
-                landmark = results.face_landmarks.landmark[idx]
-                keypoints.extend([landmark.x, landmark.y, landmark.z])
-            else:
-                keypoints.extend([0.0, 0.0, 0.0])
-    else:
-        keypoints.extend([0.0] * 150)
-    
-    return np.array(keypoints, dtype=np.float32)
+    return np.array(keypoints[:126], dtype=np.float32)
 
 def there_hand(results):
     """Verifica si hay al menos una mano en el frame."""
